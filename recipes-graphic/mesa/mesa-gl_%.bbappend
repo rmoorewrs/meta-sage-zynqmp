@@ -1,0 +1,1 @@
+DRIDRIVERS:sage-zynqmp = "nouveau"

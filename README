@@ -1,0 +1,882 @@
+        Xilinx ZYNQMP Boards
+
+
+1. About this document
+======================
+This document provides common and non-hardware specific information.
+Please refer to README.hardware for hardware specific information.
+
+Dependencies
+------------
+This layer depends on the oe-core version supplied with Wind River Linux
+and the wrlinux layer.
+
+
+Maintenance
+-----------
+This layer is maintained by Wind River Systems, Inc.
+Contact <support@windriver.com> or your support representative for more
+information on submitting changes.
+
+
+Building the zynqmp layer
+-----------------------------
+This layer and wrlinux layer should be added to bblayers.conf.
+
+
+License
+-------
+Copyright (C) 2019 Wind River Systems, Inc.
+
+Source code included in the tree for individual recipes is under the LICENSE
+stated in the associated recipe (.bb file) unless otherwise stated.
+
+The metadata is under the following license unless otherwise stated.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+2. BSP Kernel and Distros
+=========================
+
+The following table summarizes the valid Wind River Linux distros for this BSP.
+'Y' in each content cell stands for supported; 'N' stands for not supported:
+
+  +--------------+-------------+-------------+------------------+
+  | valid/distro |   wrlinux   | wrlinux-cgl | wrlinux-std-sato |
+  +--------------+-------------+-------------+------------------+
+  |    valid     |      Y      |      N      |         Y        |
+  +--------------+-------------+-------------+------------------+
+
+For the supported kernel type for this BSP, check the TARGET_SUPPORTED_KTYPES
+by running 'bitbake -e | grep "^TARGET_SUPPORTED_KTYPES"'.
+
+Note: The preempt-rt kernel type can be used with this BSP/Machine.
+
+3. Board Specific Patches
+=========================
+
+To get a list of patches applied to the kernel specific to this BSP along with
+patch descriptions use git-whatchanged on the default kernel. For example:
+
+	%> cd tmp-glibc/work-shared/<bsp_name>/kernel-source
+	%> git whatchanged <kernel_version>/standard/base..<kernel_version>/standard/<bsp_name>
+
+
+4. Boot Instructions
+====================
+
+You must load the DTB (device tree blob) into the target's memory
+prior to booting the kernel Image. The DTB file can be found in the export
+directory after building a project, or you can generate it manually with the
+following commands:
+
+	# bitbake -c devshell virtual/kernel
+	# vim arch/arm64/boot/dts/xilinx/the_file_you_edit*.dts
+	# make xilinx/zynqmp-zcu102-rev1.0.dtb
+
+The resulting DTB file can be found here:
+path_to_project/build/tmp-glibc/work/<bsp name>-wrs-linux/linux-yocto/<kernel version>/linux-<bsp name>-<kernel type>-build/arch/arm64/boot/dts/xilinx/
+
+Assuming all files can be downloaded from a network, deploy your board and host
+properly to ensure your network is available from the board.
+
+4.1 Boot from SD card
+---------------------
+
+4.1.1 Deploy kernel, DTB image and file system image into your SD card
+----------------------------------------------------------------------
+
+Refer to the bootloader/README for information on how to make an SD
+bootable card. Deploy the kernel image, DTB image and file system image as follows:
+
+	# mount /dev/mmcblk0p2 /mnt/sd
+	# tar xfj wrlinux-image-std-xilinx-zynqmp.tar.bz2 --numeric-owner -C /mnt/sd
+	# umount /mnt/sd
+	# mount /dev/mmcblk0p1 /mnt/sd
+	# cp path_to_Image /mnt/sd/boot
+	# cp path_to_zynqmp-zcu102-rev1.0.dtb /mnt/sd/boot
+	# umount /mnt/sd
+
+4.2.2 Set the u-boot environment variables and boot from SD card
+----------------------------------------------------------------
+
+Run the following command to load the kernel image and DTB image:
+
+	=> setenv bootargs console=ttyPS0,115200 root=/dev/mmcblk0p2 rw rootwait earlycon=cdns,mmio,0xFF000000 clk_ignore_unused
+	=> mmc rescan
+	=> fatload mmc 0 0x10000000 Image
+	=> fatload mmc 0 0x13800000 zynqmp-zcu102-rev1.0.dtb
+	=> booti 0x10000000 - 0x13800000
+
+4.2 NFS boot
+------------
+
+4.2.1 Setup configuration your NFS TFTP server, and deploy the rootfs tarball
+-----------------------------------------------------------------------------
+
+	# sudo tar jxf wrlinux-image-std-sato-xilinx-zynqmp.tar.bz2 -C path_to_rootfs
+
+4.2.2 Set the u-boot environment variables and boot from NFS
+------------------------------------------------------------
+
+	=> setenv bootargs console=ttyPS0,115200 earlycon=cdns,mmio,0xFF000000 clk_ignore_unused root=/dev/nfs rw nfsroot=serverip:path_root_rootfs ip=dhcp
+	=> tftpboot 0x10000000 Image; tftpboot 0x13800000 dtb; booti 0x10000000 - 0x13800000
+
+5. WIC Notes
+============
+
+User can use the OpenEmbedded Image Creator to create the properly partitioned
+image on a SD card. It generates partitioned images from existing OpenEmbedded
+build artifacts. Please refer to the following URL for more detailed partition
+information about WIC:
+
+https://docs.yoctoproject.org/singleindex.html#creating-partitioned-images-using-wic
+
+5.1 Build WIC image within BOOT.BIN in boot partition
+-----------------------------------------------------
+
+BOOT.BIN is the bootloader for zcu102 board. Because of license issue, it isn't
+integrated into WRLinux. You can download it from the website:
+
+https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18842316/Linux+Prebuilt+Images
+
+and then add one line below to local.conf:
+
+IMAGE_BOOT_FILES:append = " /< path-to-BOOT.BIN >/BOOT.BIN;BOOT.BIN"
+
+After having built your project, a partitioned WIC image will be created in the
+deploy folder as follows:
+
+  path_to_your_project/build/tmp-glibc/deploy/images/xilinx-zynqmp/wrlinux-image-<rootfs_type>-xilinx-zynqmp.wic
+
+There are two partitions in this WIC images, the first one is to hold the boot
+images(including kernel/dtb/BOOT.BIN), the second is the related root file system.
+
+5.2 Boot the board from the WIC SD card
+---------------------------------------
+
+Insert the SD card into the board and power on, then set the proper u-boot
+environment parameters to boot the board, please refer to section 4 for more
+information.
+
+Board can boot automatically by set the below uboot environment variables:
+
+=> setenv bootfile Image; setenv fdtfile zynqmp-zcu102-rev1.0.dtb;  setenv loadaddr 0x10000000; setenv fdtaddr 0x13800000;
+
+=> setenv bootargs 'root=/dev/mmcblk0p2 rw rootdelay=5 console=ttyPS0,115200n8'
+
+=> setenv bootcmd 'fatload mmc 0:1 $loadaddr $bootfile; fatload mmc 0:1 $fdtaddr $fdtfile; booti $loadaddr - $fdtaddr';
+
+=> saveenv; run bootcmd;
+
+6. Multilib
+===========
+
+By default, this BSP is configured as a 64-bit kernel and 64-bit userspace.
+If a full 32-bit filesystem is necessary, use the prefix "lib32-" before
+the expected target image as follows:
+
+	# bitbake lib32-wrlinux-image-std
+
+7. kexec and kdump
+===================
+
+You need to add feature/kexec support as follow:
+	./wrlinux-x/setup.sh --machines xilinx-zynqmp --templates feature/kexec,feature/kdump
+
+7.1 kexec
+---------
+
+	kexec -l  /boot/Image --append="`cat /proc/cmdline`"
+	kexec -e
+
+7.2 kdump
+---------
+
+Add crashkernel=512M to the kernel cmdline
+   kexec -p /boot/Image --append="$your-bootcmd"
+   echo c > /proc/sysrq-trigger
+
+8. Features
+===========
+
+8.1 CAN
+-------
+
+# configure can0 in the speed of 800000
+   $ ip link set can0 up type can bitrate 800000
+   $ ip -details link show can0
+
+# send out a single frame
+   $ cansend can0 1F334455#1122334455667788
+   $ ip link set can0 down
+
+8.2 DisplayPort
+---------------
+
+According to the vendor, only some monitors in the following link are supported:
+  https://www.xilinx.com/support/answers/68671.html
+
+8.2.1 DP Display
+----------------
+
+Show and adjust screen resolution, some draw examples
+   root@xilinx-zynqmp:~# export DISPLAY=:0.0
+   root@xilinx-zynqmp:~# xrandr
+   Screen 0: minimum 320 x 200, current 1024 x 768, maximum 4096 x 4096
+   DP-1 connected primary 1024x768+0+0 518mm x 324mm
+      1920x1080     24.00    23.98
+      1280x720      60.00    50.00    59.94
+      1024x768      75.03*   60.00
+      800x600       75.00    60.32
+      720x576       50.00
+      720x480       60.00    59.94
+      640x480       75.00    60.00    59.94
+      720x400       70.08
+   root@xilinx-zynqmp:~# xrandr -s 1920x1080
+
+8.2.2 DP Audio
+--------------
+
+Connect loudspeaker or headset with display monitor, and then run below commands:
+	# aplay -l
+	# speaker-test -c2 -twav
+
+8.3 suspend/resume
+------------------
+
+"Suspend-To-RAM" is supportted by running below command:
+
+	# echo mem > /sys/power/state
+
+Wakeup system, customer can use network, rtc, console and so on, it depends on concrete scenario.
+Below is an example of wakeing up by console.
+Run below command before entering suspend status.
+	# echo enabled > /sys/devices/platform/amba/ff000000.serial/tty/ttyPS0/power/wakeup
+And then, press Enter key in console window.
+
+8.4 System Monitor
+------------------
+
+System monitor includes PL monitor and PS monitor.
+Each system monitor measures voltage and temperature to provide information and alarms
+to other parts of the system including the PMU, RPU, and APU processors.
+
+Customer could check the detail system monitor interfaces with below command:
+	# ls -la /sys/bus/iio/devices/iio:device0
+
+8.5 CANFD
+---------
+
+Based on CANFD FPGA LogiCORE IP from Xilinx, there are 2 canfd devices on FPGA side.
+An example is provided to verify can/canfd driver with Xilinx-zcu102 board(REV 1.0) and
+FMC extend board(https://www.xilinx.com/products/boards-and-kits/1-12nths4.html)
+
+8.5.1 Boot up system with CANFD specific dtb file
+------------------------------------------------
+
+	# fatload mmc 0 0x13000000 zynqmp-zcu102-rev1.0-canfd.dtb
+	or
+	# tftpboot 0x13000000 <tftp server>/zynqmp-zcu102-rev1.0-canfd.dtb
+
+8.5.2 Verify CANFD
+------------------
+
+	Detail verification commands as below:
+
+	# ip link set can1 up type can bitrate 125000 dbitrate 8000000 fd on
+	# ip link set can2 up type can bitrate 125000 dbitrate 8000000 fd on
+	# candump can1 &
+	# cansend can2 5A1#11.22.33.44.55.66.77.88
+	# ip -d -s link show can1
+	# ip -d -s link show can2
+
+If can1 dump data from can2, CANFD feature works fine.
+
+There is a Xilinx Wiki link as below, it is a CANFD development guide.
+It may offer some help when customer develops CANFD feature on their own platform.
+https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18842496/Linux+CAN+driver
+
+If customer wants to implement their own or more canfd devices, please connect with
+Xilinx to get professional technical support about how to design CANFD on FPGA side.
+
+8.6 USB
+-------
+
+The USB interface on the PS-side serves multiple roles as a host, device, and OTG
+controller. Please change kernel options and dts file according to the descriptions
+in the following link:
+
+  https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18841729/Zynq+Ultrascale+MPSOC+Linux+USB+device+driver
+
+And also, the USB Jumper Settings on the board ZCU102 are described below.
+
+8.6.1 USB Host
+--------------
+
+    J109    J110    J112    J113    J7
+    2-3     2-3     1-2     1-2     ON
+
+8.6.2 USB Device
+----------------
+
+    J109    J110    J112    J113    J7
+    2-3     1-2     1-2     1-2     OFF
+
+In addition to the method which modifies "dr_mode" property in dts file, you can change this property
+by using "fdt" u-boot command. The example for USB device mode is as described below:
+
+	=> tftpboot 0x10000000 Image; tftpboot 0x13800000 dtb
+	=> fdt addr 0x13800000; fdt resize; fdt set /axi/usb0@ff9d0000/dwc3@fe200000 dr_mode peripheral
+	=> booti 0x10000000 - 0x13800000
+
+8.6.3 USB OTG
+-------------
+
+    J109    J110    J112    J113    J7
+    1-2     1-2     1-2     2-3     ON
+
+The example to change "dr_mode" to "otg" is as described below:
+
+	=> tftpboot 0x10000000 Image; tftpboot 0x13800000 dtb
+	=> fdt addr 0x13800000; fdt resize; fdt set /axi/usb0@ff9d0000/dwc3@fe200000 dr_mode otg
+	=> booti 0x10000000 - 0x13800000
+
+NOTE: USB OTG mode can only work at USB2.0 speed for host & device, and file this question to
+the vendor, the following link is their answer:
+  https://support.xilinx.com/s/question/0D52E00006hpgaGSAQ/otg-in-zcu102-with-rev-1-0-doesnt-work-on-the-latest-sdk-v20174
+
+8.7 PCIe
+--------
+
+Only some limited PCIe devices were supported based on the SDK2018.02 and the
+following link:
+
+  http://www.wiki.xilinx.com/ZynqMP+Linux+PCIe+Root+Port
+
+As mentioned in this website, NVMe SSD and TIGON3 have been validated. It is not
+recommended to use other PCIe devices(Not mentioned in this website) because it
+might bring the board with a little electrical instability on ZCU102 Rev 1.0.
+
+8.8 GPU
+-------
+
+3D-graphics apps call Mali-libs API(libmali-xlnx) to drive the Mali400 GPU
+directly by Mali400 kernel driver.
+Some of mesa-demos test cases can be used to validate this function under limitation,
+but we just keep this part as-is without further debugging since only binary
+libs are available.
+
+Due to the software license terms, we are not permitted to redistribute the
+libmali-xlnx components. Due to this, we are unable to support the components
+or directly enable them within Wind River Linux. Please contact your silicon
+vendor if you have any questions about the libmali-xlnx software license terms.
+
+As below is the step how to build a graphics enabled system:
+
+  1) set BB_NO_NETWORK as '0' in <path-of-project>/build/conf/local.conf file.
+
+  2) Launch bitbake to build an image with graphics support
+
+     $ cd path_to_your_project
+     $ . ./environment-setup-x86_64-wrlinuxsdk-linux
+     $ . ./oe-init-build-env
+     $ cat << _EOF >> conf/local.conf
+DISTRO ?= "wrlinux-graphics"
+PREFERRED_PROVIDER_virtual/mesa:xilinx-zynqmp = "mesa-gl"
+PREFERRED_PROVIDER_virtual/libgl:xilinx-zynqmp = "mesa-gl"
+PREFERRED_PROVIDER_virtual/libgles1:xilinx-zynqmp = "libmali-xlnx"
+PREFERRED_PROVIDER_virtual/libgles2:xilinx-zynqmp = "libmali-xlnx"
+PREFERRED_PROVIDER_virtual/egl:xilinx-zynqmp = "libmali-xlnx"
+WRL_RECIPES:xilinx += "libmali-xlnx"
+WRL_RECIPES:xilinx += 'kernel-module-mali'
+LICENSE_FLAGS_ACCEPTED += "xilinx"
+_EOF
+     $ bitbake wrlinux-image-std-sato
+
+8.9 SATA
+---------
+
+When your SATA hard disk data is corrupted, the system might report a hard link
+reset, then try the following command:
+
+     $ echo "- - -" > /sys/class/scsi_host/host1/scan
+       ata2: hard resetting link
+       ata2: SATA link down (SStatus 0 SControl 330)
+       ata2: EH complete
+
+And mkfs a new filesystem on your hard disk partition.
+
+9 FPGA Bitstream File Update
+============================
+
+On xilinx-zynqmp platform, customer is able to update their own FPGA design image
+from linux side in running time. A simple example as below:
+
+9.1 Prepare FPGA bitstream file
+---------------------------------
+
+Download a xilinx prebuilt bitstream file with below link:
+https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/183304302/2019.2+Release
+Then, extract the .bit file from package 2019.2-zcu102-release.tar.xz and rename it into system.bit
+
+9.2 Generate binary file
+--------------------------
+
+Because xilinx-zynqmp platform only supports binary format for updating FPGA, it is need
+to change the .bit file into binary format with below commands:
+ - set environment variable
+ # source xxx/Vivado/Vivado/2019.2/settings64.sh
+
+ - generate the .bin from .bit file using Bootgen
+ # bootgen -image Bitstream.bif -arch zynqmp -process_bitstream bin	(For 2017.4 and earlier releases)
+ or
+ # bootgen -image Bitstream.bif -arch zynqmp -o ./system.bit.bin -w	(For newer releases than 2017.4)
+
+ - Bitstream.bif file content as below:
+ all:
+ {
+	[destination_device = pl] system.bit	/* Bitstream file name */
+ }
+
+ - The output bin file is system.bit.bin
+
+9.3 Generate Device Tree Overlay (DTO)
+---------------------------------------
+
+As below is the file contents example:
+
+// pl.dtsi overlay dts file.
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target-path = "/fpga-full";
+
+        __overlay__ {
+            #address-cells = <2>;
+            #size-cells = <2>;
+
+            firmware-name = "system.bit.bin";
+        };
+    };
+};
+
+We can create Device Tree Overlay Blob (.dtbo) file from
+the pl.dtsi file as below:
+
+dtc -O dtb -o pl.dtbo -b 0 -@ pl.dtsi
+
+9.4 Deploy required files
+---------------------------
+Deploy system.bit.bin and pl.dtbo file in SD card or other storage medium.
+
+9.5 Update FPGA bitstream file
+--------------------------------
+9.5.1 Update FPGA by using device tree overlay
+Boot up kernel and login, then run below commands in terminal.
+1) Set flags for Full Bitstream.
+	# echo 0 > /sys/class/fpga_manager/fpga0/flags
+
+2) Copy the Full Bitstream (.bin) and pl.dtbo files into firmware folder
+	# mkdir -p /lib/firmware
+	# cp xxx/system.bit.bin /lib/firmware/system.bit.bin
+	# cp xxx/pl.dtbo /lib/firmware/pl.dtbo
+
+3) Apply overlay DTB(pl.dtbo) to add live device nodes
+	# mkdir /sys/kernel/config/device-tree/overlays/system
+	# cd /lib/firmware/
+	# echo pl.dtbo > /sys/kernel/config/device-tree/overlays/system/path
+
+4) Steps to remove device nodes
+	# rmdir /sys/kernel/config/device-tree/overlays/system
+
+9.5.2 Update FPGA by using sysfs interface
+Boot up kernel and login, then run below commands in terminal.
+# echo 0 > /sys/class/fpga_manager/fpga0/flags
+# mkdir -p /lib/firmware
+# cp xxx/system.bit.bin /lib/firmware/system.bit.bin
+# cd /lib/firmware
+# echo system.bit.bin > /sys/class/fpga_manager/fpga0/firmware
+
+9.6 Note
+---------
+If customer wants to enable new peripherals that reside in the new FPGA bitstream from linux side,
+overlay solution is able to implement the requirement. Detail description, please refer to below link.
+https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/18841847/Solution+ZynqMP+PL+Programming#x-Programming+the+PL+through+Linux
+
+
+10 Generate dtb based on HDF/XSA
+================================
+Firstly, set BB_NO_NETWORK as '0' in <path-of-project>/build/conf/local.conf file.
+Then following the steps as below to generate the dtb files based on the HDF/XSA files:
+
+     $ cd path-of-project
+     $ . ./environment-setup-x86_64-wrlinuxsdk-linux
+     $ . ./oe-init-build-env
+     $ cat << _EOF >> conf/local.conf
+WRL_RECIPES:xilinx += 'device-tree'
+WRL_RECIPES:xilinx += 'python3-dtc'
+WRL_RECIPES:xilinx-tools += 'external-hdf'
+HDF_BASE = "file://"
+HDF_PATH = "/< path-to-hdf >/system.xsa"
+HDF_MACHINE = "zcu102-zynqmp"
+_EOF
+     $ bitbake device-tree
+
+Once bitbake successfully, you will find the dtb file "system.dtb" in the directory:
+<path-of-project>/build/tmp-glibc/deploy/images/xilinx-zynqmp/system.dtb
+
+NOTE: Please make sure the version of the xsct tools is in accordance with the version
+of HDF/XSA files, and there may be some unpredictable problems if using the HDF/XSA
+files of older versions.
+
+
+11 Secure Boot
+==============
+
+11.1 Introduction
+-----------------
+This section provides detail description about how to enable secure
+boot on xilinx-zcu102 rev 1.0 board. It includes the implementation
+principles of secure boot, implementation example step by step and so on.
+
+11.1.1 Dependency
+-----------------
+Secure boot feature depends on template feature/secure-boot.
+
+11.1.2 Building Secure Boot
+---------------------------
+
+	# ./wrlinux-x/setup.sh --machines xilinx-zynqmp --templates feature/secure-boot
+
+
+11.2. Preparations & Prerequisites
+----------------------------------
+To use secure boot feature, assume that you are:
+ - Experienced with WRL linux embedded software development
+ - Experienced with Xilinx development tools such as xSDK.
+ - Familiar with ARMv8 and ZynMP SoC architecture.
+ - Familiar with the basic concepts of security, like openssl, authentication,
+   encryption, hardware root trust, RSA, AES, key source, certificate, etc.
+
+Hardware preparations:
+ - A host machine installed with Xilix Design Tool.
+ - A host machine installed with aarch64 cross-compile toolchain.
+ - Xilinx ZynqMP ZCU102 development sets with Silicon version 4.
+
+11.3. WRL ZynqMP Security Introduction & Hardware Root Of Trust Secure Boot
+---------------------------------------------------------------------------
+
+WRL secure boot on ZynqMP platform includes bootloader(BOOT.BIN) based on the
+hardware root of trust secure boot from Xilinx Zynq MPSoC and verifiable fitImage
+with RSA2048 signature.
+
+Secure boot encryption and signature overview chart for zynqmp platform as below:
+
+ Encryption & signature                           Verification
+ ----------------------                           ------------
+
+ +--------------+               *
+ | AES256 key   |               *                +----------------------+
+ | RSA4096 pair |               *                | Program key & digest |
+ +--------------+   +-> AES key & P-key digest-->| into BBram, eFuse or |
+       |            |           *                | boot header		|
+       |            |           *                +----------------------+
+       |            |           *                       |
+       v            |           *                       v
+   +---------+      |           *                +-------------+
+   | Xilinx  |------+           *                |             |  /-no->lockdown
+   | xSDK    |                  *                | CSU verify  | |
+   | tools   |------+           *                | and decrypt |<
+   +---------+      |           *                | image set   | |
+       ^            |           *                |             |  \-yes->u-boot
+       |            |           *                +-------------+        |
+       |            |           *                       ^               |
+  +-------------+   |           *                       |               |
+  + Image sets  |   +-> encrypted and signed image------+               v
+  + assembling: |               *                                Verify fitImage
+  + fslb.elf    |               *                                       |
+  + pmufw.elf   |               *                                      yes
+  + system.bit  |               *                                       |
+  + bl31.elf    |               *                                       |
+  + u-boot.elf  |               *                                       v
+  +------------+                *    			    Finally boot up WRL kernel
+       ^
+       |
+(RSA2048/RSA4096 public key in u-boot,
+which is used to verify the signed
+fitImage with RSA2048/RSA4096 private key)
+
+
+11.4 CSU Introduction
+===================
+Hardware CSU processor embedded in ZynqMP SoC to handle security stuffs
+
+ZynqMP holds a triple redundant microblaze processor CSU to handle some security
+boottime stuffs like:
+
+  * Interpret the boot header and eFuse registers to configure the system and
+    do the validation of the public key and public key revocation.
+  * Loading, authentication, decryption(optional) of the FSBL, u-boot, etc.
+  * Configure the PL via PCAP & Keys management.
+  * Tamper events detecting and response.
+
+CSU module AES-GCM hardware engine supports confidentiality of the boot images
+and SHA hardware accelerator implements the SHA-3 algorithm and produces a 384
+bits digest, which is used together with the RSA accelerator to provide images
+authentication.
+
+Please refer to the chpater 12 in [3] for more secure boot information.
+
+
+11.5. Using Xilinx Design tools to make BOOT.BIN with AES encryption and RSA signature
+--------------------------------------------------------------------------------------
+
+Prerequisites:
+
+  * RSA key pair related knowledges, like using openssl to make RSA key pair.
+  * Please carefully read chapter 8, 11, 12 in [3], chapter 8 and 16 in [4],
+    chapter 5 in [9] and all content of [5] in References section.
+  * Download and install Xilinx SDK 2019.1 or later version via link [7].
+
+After having downloaded and installed Xilinx SDK, then you can start to make
+RSA key pair and assemble your own zynqmp BOOT.BIN by bootgen command.
+
+11.5.1. Using bootgen in Xilinx Design tools
+--------------------------------------------
+Set environment with below command:
+
+   $ source <path_to_XSDK>/settings64.sh
+
+After setting environment, customer is able to generate RSA 4096 key pairs
+and BOOT.bin according to the doc [4], [5] and [9].
+The following are some simple examples:
+
+ - Generate RSA 4096 key pairs
+
+   $ bootgen -generate_keys auth pem -arch zynqmp -image generate_pem.bif
+
+ - Generate sha3 degist value
+
+   $ bootgen -image generate_hash_ppk.bif -arch zynqmp -w -o test.bin -efuseppkbits sha3.txt
+
+ - Generate BOOT.BIN for key stored in BBRAM
+
+   $ bootgen -image generate_secure_boot_bbram.bif -arch zynqmp -w -o BOOT.BIN
+
+ - Generate BOOT.BIN for key stored in eFUSE
+
+   $ bootgen -image generate_secure_boot_efuse.bif -arch zynqmp -w -o BOOT.BIN
+
+ - Generate BOOT.BIN for key stored in boot header
+
+   $ bootgen -image generate_secure_boot_bh.bif -arch zynqmp -w -o BOOT.BIN
+
+Note:
+All the *.bif files and keys are in BSP layer xilinx-zynqmp/zynqmp_keys.
+
+Warning:
+  * BH RSA Option(In chapter 12 of [3]), is only used for integration and test
+    support. The corresponding bit set keyword is bh_auth_enable in *.bif used
+    by bootgen. The consequently result is that the PPK and SPK-ID
+    will not be verified for authentication, so clearly this mode should not be
+    used in final product.
+    If this option is set in the configuration file and meanwhile the eFUSE is
+    programmed to force authentication with "RSA_EN" by Xilinx Tools, this device
+    will go into lockdown during boot.
+
+
+11.5.2 Detail steps about how to generate secure bootloader(BOOT.BIN)
+---------------------------------------------------------------------
+Below example describes how to generate BOOT.BIN and the black key is stored
+in boot header.
+
+11.5.2.1 Generate First Stage Boot Loader
+To create First Stage Boot Loader, please refer to section
+[Create First Stage Boot Loader for ARM Cortex A53-Based APU] in [9]
+
+11.5.2.2 Generate PMU firmware
+To create PMU firmware, please refer to section
+[Create PMU Firmware for Platform Management Unit] in [9]
+
+11.5.2.3 Get FPGA bit stream file
+Download 2019.1-zcu102-release.tar.xz from below link:
+https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/135364615/Zynq+2019.1+Release
+And then get the system.bit file from the release package.
+
+11.5.2.4 Build the arm trust firmware
+Detail steps as below:
+	$ git clone https://github.com/Xilinx/arm-trusted-firmware.git
+	$ cd arm-trusted-firmware
+	$ git branch xilinx-v2019.1 xilinx-v2019.1
+	$ git checkout xilinx-v2019.1
+	$ export CROSS_COMPILE=<path_to_toolchain>/aarch64-linux-gnu-
+	$ export ARCH=aarch64
+	$ make realclean
+	$ make PLAT=zynqmp clean
+	$ make PLAT=zynqmp RESET_TO_BL31=1
+
+	At last, get the bl31.elf file
+
+11.5.2.5 Generate black key related files for boot header mode
+To create black key related files, please refer to section
+[PUF Registration - Boot Header Mode] in [9]
+
+11.5.2.6 Generate u-boot.elf
+When build BSP xilinx-zynqmp, u-boot will be built and the u-boot.elf is in
+<path_bsp_project>/build/tmp-glibc/deploy/images/xilinx-zynqmp/
+How to build BSP xilinx-zynqmp with secure-boot template, please refer to section 11.8.
+
+11.5.2.7 Generate BOOT.BIN
+So far, there are all the related files as below to generate BOOT.bin.
+	aes.nky		//AES key to encrypt each partition in BOOT.BIN
+	psk0.pem	//The primary secret key, it is from BSP layer xilinx-zynqmp/zynqmp_keys/hd-root-trusted-rsa4096
+	ssk0.pem	//The secondary secret key, it is from BSP layer xilinx-zynqmp/zynqmp_keys/hd-root-trusted-rsa4096
+	helperdata.txt	//PUF(physically unclonable function) Syndrome data
+	black_key.txt	//The black key that is a encrypted key
+	black_iv.txt	//The black key initialization vector
+	fsbl_a53.elf	//The First Stage Boot Loader
+	pmufw.elf	//The PMU firmware
+	system.bit	//The FPGA bit stream
+	bl31.elf	//The arm trust firmware
+	u-boot.elf	//The u-boot with the public key of RSA-2048/RSA-4096 key.
+
+Put the above files into the same directory, and run below command to create BOOT.BIN.
+Note: Please ensure the necessary environment is set in current terminal windows.
+
+	$ bootgen -image generate_secure_boot_bh.bif -arch zynqmp -w -o BOOT.BIN
+
+
+11.6. Programming BBRAM and eFUSE
+---------------------------------
+After all the development effort, it is recommend to use BBRAM or eFUSE to
+save key for protecting product. About how to burn BBRAM and eFUSE, please
+refer to [5].
+
+
+11.7. A verifiable fitimage
+---------------------------
+
+u-boot uses rsa2048/rsa4096 cryptographic algorithms to 'sign' software images.
+Images are signed with a private key of the ras2048/rsa4096 key pair that is only
+owned by the signer, but can be verified by anyone who has the public key.
+In wrlinux, the fitImage is signed with private key during building linux-yocto kernel.
+The public key is combined with u-boot.dtb that is in the final image u-boot.elf.
+The signature and verification process as follows:
+
+
+      Signing                                      Verification
+      =======                                      ============
+
+ +--------------+                   *
+ | 2048/4096 RSA|                   *             +---------------+
+ | key pair     |                   *             | Public key in |
+ +--------------+       +------> Public key ----->| trusted u-boot|
+        |               |           *             +---------------+
+        |               |           *                    |
+        v               |           *                    v
+   +---------+          |           *             +---------------+
+   |         |----------+           *             |u-boot verify  |
+   | Signer  |                      *             |the fitImage   |
+   |         |----------+           *             |signed with the|--> yes/no
+   +---------+          |           *             |rsa2048/rsa4096|
+        ^               |           *             |private key    |
+        |               |           *             +---------------+
+        |               |           *                    ^
+   +----------+         |           *                    |
+   | Software |         +----> Signed fitImage ----------+
+   |  image   |                     *
+   +----------+                     *
+
+Note:
+ - To sign kernel image, Xilinx secure boot feature supports rsa2048 and rsa4096 key type.
+   Set KERNEL_RAS_TYPE as the expected value. The default one is rsa2048.
+
+
+11.8. Enable secure boot for BSP xilinx-zynqmp
+----------------------------------------------
+
+11.8.1 Build xilinx-zynqmp BSP project with secure-boot template
+----------------------------------------------------------------
+Detail steps as below:
+	$ mkdir <path_to_project>
+	$ cd <path_to_project>
+	$ <path_to_wrlinux>/wrlinux-x/setup.sh --machine xilinx-zynqmp --distro wrlinux --dl-layers --all-layers --accept-eula=yes --templates feature/secure-boot
+	$ source ./environment-setup-x86_64-wrlinuxsdk-linux
+	$ source ./oe-init-build-env
+	$ bitbake wrlinux-image-std
+
+Note:
+When building xilinx-zynqmp BSP project with secure-boot template, the kernel image type is fitImage that
+includes dtb and kernel image. They are all signed by the private key of a RSA-2048/RSA-4096 key that is in
+<path_to_project>/layers/xilinx-zynqmp/zynqmp_keys/fitImage-rsa2048-keys and
+<path_to_project>/layers/xilinx-zynqmp/zynqmp_keys/fitImage-rsa4096-keys
+
+11.8.2 Boot fitImage
+--------------------
+The fitImage is booted with command "bootm".
+There is an example as below, download kernel from tftp server and mount NFS file system.
+
+	# setenv bootargs console=ttyPS0,115200n8 root=/dev/nfs rw rootwait earlycon=cdns,0xFF000000 nfsroot=$serverip:<path_to_nfs>,v3,tcp ip=dhcp clk_ignore_unused
+	# setenv bootcmd 'tftpboot 0x10000000 $serverip:<path_to_kernel>/fitImage; bootm 0x10000000'
+	# setenv ipaddr <board-ip>
+	# setenv netmask <board-netmask>
+	# setenv gatewayip <board-gatewayip>
+	# setenv serverip <server-ip>
+	# run bootcmd
+
+There is another example based on wic image, load kernel from sd boot partition and mount file system from /dev/mmcblk0p2.
+
+	# setenv bootfile fitImage
+	# setenv loadaddr 0x10000000
+	# setenv bootargs console=ttyPS0,115200n8 root=/dev/mmcblk0p2 rw earlycon=cdns,0xFF000000 ip=dhcp clk_ignore_unused
+	# setenv bootcmd 'fatload mmc 0:1 $loadaddr $bootfile; bootm $loadaddr'
+	# run bootcmd
+
+11.9. Notes
+-----------
+
+Only encryption and authentication part of CSU are validated, other functions
+like tamper event detection and response belongs to CSU bootrom codes, please
+contact Xilinx for more information about CSU. Only boot header mode(A black
+key stored in boot header) is validated currently.
+
+Risks warning from UG1085, once program efuse wrongly, the board might enter
+into a secure lockdown state if SEC_LK is programmed into eFuse. Please refer
+to Chapter 8, 11, and 12 in [3] for more security related information.
+
+Not all secure function modules are validated due to hardware resource issue,
+like the following:
+  SEC_LK, JTAG_DIS, ERR_DIS, BBRAM_DIS, ENC_ONLY, etc.
+
+
+11.10. References
+-----------------
+
+[1] http://www.wiki.xilinx.com/Zynq+UltraScale+MPSoC+Secure+Boot
+[2] https://www.xilinx.com/html_docs/registers/ug1087/ug1087-zynq-ultrascale-registers.html
+[3] https://www.xilinx.com/support/documentation/user_guides/ug1085-zynq-ultrascale-trm.pdf
+[4] https://www.xilinx.com/support/documentation/user_guides/ug1137-zynq-ultrascale-mpsoc-swdev.pdf
+[5] https://www.xilinx.com/support/documentation/application_notes/xapp1319-zynq-usp-prog-nvm.pdf
+[6] https://www.xilinx.com/support/documentation-navigation/design-hubs/dh0070-zynq-mpsoc-design-overview-hub.html
+[7] https://www.xilinx.com/support/download/index.html/content/xilinx/en/downloadNav/embedded-design-tools.html
+[8] https://github.com/Xilinx/u-boot-xlnx  //The fitImage-related docs in path_to_u-boot-xlnx/doc
+[9] https://www.xilinx.com/support/documentation/sw_manuals/xilinx2017_2/ug1209-embedded-design-tutorial.pdf

@@ -1,0 +1,103 @@
+		Xilinx ZynqMP Board Support Package
+
+
+Table of Contents
+=================
+
+1. Supported Boards
+2. Change History
+3. BSP Features
+4. BSP Notes
+
+
+1. Supported Boards
+===================
+
+This BSP supports the following boards:
+
+  + Xilinx ZYNQMP ZCU102 REV 1.0/1.1
+
+
+2. Change History
+=================
+
+  - 2019/06 (LINUXPG-77): WindRiver CI/CD branch support: Add BSP support for ZYNQMP ZCU102 based on xilinx-sdk-2019.01
+  - 2020/07 (LINUXPG-466): Add BSP support for ZYNQMP ZCU102 board based on xilinx-sdk-2020.01
+  - 2022/07 (LINUXPG-1140): Add BSP support for ZYNQMP ZCU102 board based on xilinx-sdk-2022.01
+
+3. BSP Features
+===============
+
+3.1 Supported Features
+----------------------
+
+The following BSP features are validated and supported on boards where
+the corresponding h/w features exist.
+
+  o General Platform
+	+ DMA Engine: The enhanced direct memory access (EDMA) controller
+
+  o Bus
+	+ CAN: ZynqMP
+	+ CANFD: Based on Xilinx FPGA CANFD logiCORE IP
+	+ I2C: Cadence 
+	+ SPI: ZynqMP
+	+ PCIe: On-Chip PCIe controller
+	+ USB: Host/Gadget/OTG mode
+
+  o Network
+	+ MACB: Gigabits Controller
+	+ PHY: Fixed MDIO
+
+  o Storage
+	+ NOR Flash: N25Q512A 128MB
+	+ Sata CEVA
+	+ SD/MMC:
+
+  o Power Mgmt
+	+ CPU hotplug
+	+ CPU IDLE: WFI mode
+	+ CPU Frequency
+
+  o Misc Devices
+	+ EDAC zynqmp memory controller
+	+ INA2xx
+	+ RTC
+	+ UART
+
+  o Graphic
+       + ARM Mali-400 MP2(r8p0-01rel0)
+       + DisplayPort
+       + Xilinx DRM
+       + Xilinx FB
+
+3.2 Patch integrated and Unsupported Features
+---------------------------------------------
+
+The following features are not validated:
+
+  x HPC0, HPC1 ports (One for imx274 camera)
+  x Two HDMI ports
+  x 2x2 SFP/SFP+ ports
+  x SMMU
+
+Most of these features are not validated since they need a special TRD firmware
+bootloader with the related PL bitstream, generally speaking, you can download
+the specific Xilinx xapp from the vendor website with your Xilinx account,
+like xapp1305 for SFP interface.
+
+Please refer to BSP notes for more information.
+
+4. BSP Notes
+============
+
+4.1 Validated Board Info
+------------------------
+
+This BSP is only validated in following environment. If you use this BSP
+in a different environment it may possibly have some issues.
+
+	Processor:              ZYMQMP (410fd034 revision 4, Chip ID: xczu9eg)
+	Board Revision:	        Rev 1.0/1.1
+	BootLoader:             U-Boot
+	BootLoader Version:     U-Boot 2019.02
